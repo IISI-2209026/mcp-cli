@@ -136,6 +136,7 @@ The crate also exposes lower-level modules such as `mcp_cli::client`, `mcp_cli::
 |--------|-------------|
 | `-h, --help` | Show help message |
 | `-v, --version` | Show version number |
+| `--skill` | Show agent skill definition (SKILL.md) |
 | `-d, --with-descriptions` | Include tool descriptions |
 | `-c, --config <path>` | Path to config file (overrides all default configs, no merge) |
 

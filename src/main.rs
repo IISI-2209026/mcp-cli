@@ -49,7 +49,11 @@ fn parse_server_tool(args: &[String]) -> (String, Option<String>) {
 }
 
 fn parse_args() -> ParsedArgs {
-    let args: Vec<String> = std::env::args().skip(1).collect();
+    parse_args_from_iter(std::env::args().skip(1))
+}
+
+fn parse_args_from_iter(args: impl IntoIterator<Item = String>) -> ParsedArgs {
+    let args: Vec<String> = args.into_iter().collect();
 
     let mut with_descriptions = false;
     let mut config_path = None;
@@ -74,6 +78,19 @@ fn parse_args() -> ParsedArgs {
             "-v" | "--version" => {
                 return ParsedArgs {
                     command: "version".to_string(),
+                    server: None,
+                    tool: None,
+                    pattern: None,
+                    args: None,
+                    with_descriptions: false,
+                    config_path: None,
+                };
+            }
+            // 業務動機：支援向 AI Agent 或開發者直接輸出 Skill 規格定義檔（SKILL.md）。
+            // 只要帶上 --skill 旗標，便直接將 command 設為 "skill" 並退出參數解析。
+            "--skill" => {
+                return ParsedArgs {
+                    command: "skill".to_string(),
                     server: None,
                     tool: None,
                     pattern: None,
@@ -289,6 +306,7 @@ Formats (both work):
 Options:
   -h, --help               Show this help message
   -v, --version            Show version number
+      --skill              Show agent skill definition (SKILL.md)
   -d, --with-descriptions  Include tool descriptions
   -c, --config <path>      Path to config file (overrides all default configs, no merge)
 
@@ -351,6 +369,13 @@ async fn main() {
         }
         "version" => {
             println!("mcp-cli v{}", env!("CARGO_PKG_VERSION"));
+            Ok(())
+        }
+        "skill" => {
+            // 業務動機：
+            // 將編譯期打包於 binary 的 SKILL.md 直接輸出至 stdout。
+            // 使用 print! 而非 println!，保持原始 Markdown 結尾換行符不重複累積空行。
+            print!("{}", mcp_cli::SKILL_MD);
             Ok(())
         }
         "list" => {
@@ -418,5 +443,41 @@ async fn main() {
             eprintln!("{}", e);
             std::process::exit(e.code.exit_code());
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 驗證 --skill 參數能夠被正確解析為 skill 指令。
+    ///
+    /// 業務動機：
+    /// 確保命令列解析器在收到 `--skill` 時，能夠優先且正確識別，
+    /// 避免被誤判為未知選項或 server 參數。
+    #[test]
+    fn test_parse_args_skill() {
+        let parsed = parse_args_from_iter(vec!["--skill".to_string()]);
+        assert_eq!(parsed.command, "skill");
+    }
+
+    /// 驗證 --help 與 -h 參數解析。
+    #[test]
+    fn test_parse_args_help() {
+        let parsed = parse_args_from_iter(vec!["--help".to_string()]);
+        assert_eq!(parsed.command, "help");
+
+        let parsed_short = parse_args_from_iter(vec!["-h".to_string()]);
+        assert_eq!(parsed_short.command, "help");
+    }
+
+    /// 驗證 --version 與 -v 參數解析。
+    #[test]
+    fn test_parse_args_version() {
+        let parsed = parse_args_from_iter(vec!["--version".to_string()]);
+        assert_eq!(parsed.command, "version");
+
+        let parsed_short = parse_args_from_iter(vec!["-v".to_string()]);
+        assert_eq!(parsed_short.command, "version");
     }
 }

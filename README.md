@@ -112,6 +112,7 @@ mcp-cli [options] call <server> <tool> <json> 使用 JSON arguments 呼叫 tool
 |---|---|
 | `-h, --help` | 顯示 help message |
 | `-v, --version` | 顯示版本號 |
+| `--skill` | 顯示 Agent Skill 定義內容（SKILL.md） |
 | `-d, --with-descriptions` | 顯示 tool descriptions |
 | `-c, --config <path>` | 指定設定檔路徑（完全覆寫，不合併預設設定） |
 

@@ -89,6 +89,7 @@ mcp-cli call github get_file_contents '{"owner": "x", "repo": "y", "path": "z"}'
 
 | Flag | Purpose |
 |------|---------|
+| `--skill` | Output SKILL.md content for agent integration |
 | `-d` | Include descriptions |
 | `-c <path>` | Specify config file |
 
