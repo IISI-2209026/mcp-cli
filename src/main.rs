@@ -290,7 +290,7 @@ Options:
   -h, --help               Show this help message
   -v, --version            Show version number
   -d, --with-descriptions  Include tool descriptions
-  -c, --config <path>      Path to mcp_servers.json config file
+  -c, --config <path>      Path to config file (overrides all default configs, no merge)
 
 Output:
   mcp-cli/info/grep        Human-readable text to stdout
@@ -310,12 +310,12 @@ Environment Variables:
   MCP_NO_DAEMON=1        Disable connection caching (force fresh connections)
   MCP_DAEMON_TIMEOUT=N   Set daemon idle timeout in seconds (default: 60)
 
-Config File:
-  The CLI looks for mcp_servers.json in:
-    1. Path specified by MCP_CONFIG_PATH or -c/--config
-    2. ./mcp_servers.json (current directory)
-    3. ~/.mcp_servers.json
-    4. ~/.config/mcp/mcp_servers.json"#;
+Config Files:
+  By default, candidate configs are merged in order (first-match server wins):
+    1. ./mcp_servers.json (current directory)
+    2. ~/.mcp_servers.json ($HOME or %USERPROFILE%)
+    3. ~/.config/mcp/mcp_servers.json
+  Specifying -c/--config or MCP_CONFIG_PATH overrides all defaults (no merging)."#;
     println!(
         "{}",
         help_text.replace("VERSION", env!("CARGO_PKG_VERSION"))

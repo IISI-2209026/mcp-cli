@@ -113,7 +113,7 @@ mcp-cli [options] call <server> <tool> <json> 使用 JSON arguments 呼叫 tool
 | `-h, --help` | 顯示 help message |
 | `-v, --version` | 顯示版本號 |
 | `-d, --with-descriptions` | 顯示 tool descriptions |
-| `-c, --config <path>` | 指定設定檔路徑 |
+| `-c, --config <path>` | 指定設定檔路徑（完全覆寫，不合併預設設定） |
 
 ### 輸出
 
@@ -397,15 +397,23 @@ CLI 使用 `mcp_servers.json`，格式相容 Claude Desktop、Gemini 與 VS Code
 "disabledTools": ["delete_file"]
 ```
 
-### 設定檔解析順序
+### 設定檔解析與合併機制 (Config Resolution & Merging)
 
-CLI 會依序尋找以下設定來源：
+CLI 預設會依序掃描並**合併（Merge）**以下設定來源：
 
-1. `MCP_CONFIG_PATH` environment variable
-2. `-c/--config` command line argument
-3. `./mcp_servers.json`，目前目錄
-4. `~/.mcp_servers.json`
-5. `~/.config/mcp/mcp_servers.json`
+1. `./mcp_servers.json`（目前專案目錄，最高優先級）
+2. `~/.mcp_servers.json`（家目錄，支援 Unix `$HOME` 或 Windows `%USERPROFILE%`）
+3. `~/.config/mcp/mcp_servers.json`
+
+**合併規則**：
+- **同名 Server 覆蓋（First-Match Wins）**：若多個設定檔定義了相同名稱的 Server，以先讀取到的為主（例如專案設定覆蓋全域設定）。
+- **不同 Server 聯集**：不同名稱的 Server 會全部被併入最終的可用清單中。
+- **容錯與嚴格驗證**：若候選檔案不存在則自動略過；但若檔案存在且 JSON 語法損毀，會立即拋錯終止（Fail-Fast）。
+
+**Override 模式**：
+若透過以下方式明確指定單一設定檔，則會進入 Override 模式，**不會**與上述預設設定檔合併：
+- `-c/--config <path>` 命令列參數（優先）
+- `MCP_CONFIG_PATH` 環境變數
 
 ### 環境變數
 

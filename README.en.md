@@ -137,7 +137,7 @@ The crate also exposes lower-level modules such as `mcp_cli::client`, `mcp_cli::
 | `-h, --help` | Show help message |
 | `-v, --version` | Show version number |
 | `-d, --with-descriptions` | Include tool descriptions |
-| `-c, --config <path>` | Path to config file |
+| `-c, --config <path>` | Path to config file (overrides all default configs, no merge) |
 
 ### Output
 
@@ -378,15 +378,23 @@ Restrict which tools are available from a server using `allowedTools` and `disab
 "disabledTools": ["delete_file"]
 ```
 
-### Config Resolution
+### Config Resolution & Merging
 
-The CLI searches for configuration in this order:
+By default, the CLI scans and **merges** configurations in the following order:
 
-1. `MCP_CONFIG_PATH` environment variable
-2. `-c/--config` command line argument
-3. `./mcp_servers.json` (current directory)
-4. `~/.mcp_servers.json`
-5. `~/.config/mcp/mcp_servers.json`
+1. `./mcp_servers.json` (current project directory, highest priority)
+2. `~/.mcp_servers.json` (home directory, supports Unix `$HOME` or Windows `%USERPROFILE%`)
+3. `~/.config/mcp/mcp_servers.json`
+
+**Merging Rules**:
+- **First-Match Server Wins**: If multiple config files define the same server key, the first one loaded takes precedence (project-level config overrides global config).
+- **Server Union**: Servers with distinct names across files are all merged into the final server list.
+- **Fail-Fast on Corrupt Files**: Non-existent candidate files are skipped silently; however, if a file exists but contains invalid JSON or schema errors, the CLI aborts immediately.
+
+**Override Mode**:
+If a specific config is explicitly provided, the CLI operates in override mode and **will not merge** with the default configs:
+- `-c/--config <path>` command line argument (highest precedence)
+- `MCP_CONFIG_PATH` environment variable
 
 ### Environment Variables
 

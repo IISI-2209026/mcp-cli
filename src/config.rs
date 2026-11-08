@@ -331,15 +331,29 @@ fn substitute_value(val: serde_json::Value) -> Result<serde_json::Value, crate::
 // Config Loader
 // ============================================================================
 
+/// 業務動機：支援跨平台家目錄解析。
+/// Unix-like 環境（Linux, macOS, WSL）使用 HOME 環境變數；
+/// 原生 Windows 環境（PowerShell / CMD）預設沒有 HOME，而是使用 USERPROFILE。
+pub fn get_home_dir() -> Option<PathBuf> {
+    env::var("HOME")
+        .ok()
+        .or_else(|| env::var("USERPROFILE").ok())
+        .map(PathBuf::from)
+}
+
+/// 業務動機：定義預設設定檔的搜尋候選路徑。
+/// 依據優先層級（專案層級優先於全域層級），由高到低排列：
+/// 1. 當前執行目錄下的 ./mcp_servers.json
+/// 2. 使用者家目錄下的 ~/.mcp_servers.json
+/// 3. 使用者配置目錄下的 ~/.config/mcp/mcp_servers.json
 fn get_default_config_paths() -> Vec<PathBuf> {
     let mut paths = Vec::new();
 
-    // 1. Current directory
+    // 1. Current directory (專案層級優先)
     paths.push(PathBuf::from("./mcp_servers.json"));
 
-    // 2. Home directory variants
-    if let Ok(home) = env::var("HOME") {
-        let home_path = Path::new(&home);
+    // 2. Home directory variants (全域層級，支援 Unix 與 Windows)
+    if let Some(home_path) = get_home_dir() {
         paths.push(home_path.join(".mcp_servers.json"));
         paths.push(home_path.join(".config/mcp/mcp_servers.json"));
     }
@@ -347,62 +361,36 @@ fn get_default_config_paths() -> Vec<PathBuf> {
     paths
 }
 
-pub fn load_config(
-    explicit_path: Option<&str>,
-) -> Result<McpServersConfig, crate::errors::CliError> {
-    let mut config_path: Option<PathBuf> = None;
+/// 業務動機：解析單一設定檔檔案內容。
+/// 包含：讀檔、JSON 反序列化、檢查 mcpServers 頂層物件欄位、遞迴展開環境變數 (${VAR})。
+/// 採 Fail-Fast 原則：若檔案格式損毀或缺少必要欄位，立即回傳錯誤終止，不靜默吞掉錯誤。
+fn parse_single_config(path: &Path) -> Result<McpServersConfig, crate::errors::CliError> {
+    let content = fs::read_to_string(path)
+        .map_err(|e| config_invalid_json_error(&path.to_string_lossy(), &e.to_string()))?;
 
-    if let Some(path) = explicit_path {
-        config_path = Some(PathBuf::from(path));
-    } else if let Ok(env_path) = env::var("MCP_CONFIG_PATH") {
-        config_path = Some(PathBuf::from(env_path));
-    }
-
-    if let Some(path) = config_path {
-        if !path.exists() {
-            return Err(config_not_found_error(&path.to_string_lossy()));
-        }
-        config_path = Some(path);
-    } else {
-        // Search default paths
-        for path in get_default_config_paths() {
-            if path.exists() {
-                config_path = Some(path);
-                break;
-            }
-        }
-
-        if config_path.is_none() {
-            return Err(config_search_error());
-        }
-    }
-
-    let actual_path = config_path.unwrap();
-    let content = fs::read_to_string(&actual_path)
-        .map_err(|e| config_invalid_json_error(&actual_path.to_string_lossy(), &e.to_string()))?;
-
-    // Parse into standard JSON Value first to validate and substitute environment variables
+    // 解析為 JSON Value 以便執行 schema 驗證與環境變數替換
     let mut json_val: serde_json::Value = serde_json::from_str(&content)
-        .map_err(|e| config_invalid_json_error(&actual_path.to_string_lossy(), &e.to_string()))?;
+        .map_err(|e| config_invalid_json_error(&path.to_string_lossy(), &e.to_string()))?;
 
-    // Validate top level schema has mcpServers object
+    // 驗證頂層是否包含必要的 mcpServers 物件
     let mcp_servers_field = json_val.get("mcpServers");
     if mcp_servers_field.is_none() || !mcp_servers_field.unwrap().is_object() {
-        return Err(config_missing_field_error(&actual_path.to_string_lossy()));
+        return Err(config_missing_field_error(&path.to_string_lossy()));
     }
 
-    // Substitute environment variables recursively
+    // 遞迴替換設定值中的環境變數 (${VAR_NAME})
     json_val = substitute_value(json_val)?;
 
-    // Deserialize into the struct
+    // 反序列化為 McpServersConfig 結構
     let config: McpServersConfig = serde_json::from_value(json_val)
-        .map_err(|e| config_invalid_json_error(&actual_path.to_string_lossy(), &e.to_string()))?;
+        .map_err(|e| config_invalid_json_error(&path.to_string_lossy(), &e.to_string()))?;
 
-    if config.mcp_servers.is_empty() {
-        eprintln!("[mcp-cli] Warning: No servers configured in mcpServers. Add server configurations to use MCP tools.");
-    }
+    Ok(config)
+}
 
-    // Validate individual servers
+/// 業務動機：驗證設定檔中各 Server 配置的必填欄位是否合法。
+/// 避免在後續連線階段才因 command 或 url 為空而拋出未定義的系統錯誤。
+fn validate_servers(config: &McpServersConfig) -> Result<(), crate::errors::CliError> {
     for (name, server_config) in &config.mcp_servers {
         match server_config {
             ServerConfig::Stdio(sc) => {
@@ -431,8 +419,92 @@ pub fn load_config(
             }
         }
     }
+    Ok(())
+}
 
-    Ok(config)
+/// 業務動機：依路徑清單合併設定檔的核心實作。
+/// 支援由高到低優先順序走訪多個路徑：
+/// - 若檔案不存在則略過。
+/// - 若檔案存在但損毀則拋出錯誤（Fail-Fast）。
+/// - 成功解析時，以 Server 名稱為 key 進行淺層合併（先讀取到的為主）。
+pub fn load_config_from_paths(
+    candidate_paths: &[PathBuf],
+) -> Result<McpServersConfig, crate::errors::CliError> {
+    let mut merged_servers = HashMap::new();
+    let mut found_any_config = false;
+
+    for path in candidate_paths {
+        // 檔案不存在則順暢跳過，繼續尋找下一個候選路徑
+        if !path.exists() {
+            continue;
+        }
+
+        // 業務動機：採 Fail-Fast 原則，檔案若存在但格式損毀，必須立即報錯提醒使用者修復
+        let config = parse_single_config(path)?;
+        found_any_config = true;
+
+        // 業務動機：以 Server 名稱為單位進行合併。
+        // 「先讀到的為主」：已存在的 key 不會被後面的設定檔覆寫。
+        for (name, server_config) in config.mcp_servers {
+            merged_servers.entry(name).or_insert(server_config);
+        }
+    }
+
+    // 若掃描完所有候選路徑皆未發現任何存在的設定檔，拋出未找到設定檔錯誤
+    if !found_any_config {
+        return Err(config_search_error());
+    }
+
+    let final_config = McpServersConfig {
+        mcp_servers: merged_servers,
+    };
+
+    if final_config.mcp_servers.is_empty() {
+        eprintln!("[mcp-cli] Warning: No servers configured in mcpServers. Add server configurations to use MCP tools.");
+    }
+
+    // 驗證合併後的各 Server 設定有效性
+    validate_servers(&final_config)?;
+
+    Ok(final_config)
+}
+
+/// 業務動機：載入 MCP 設定。
+/// 支援兩種模式：
+/// 1. Override 模式：若呼叫端傳入 explicit_path（如 CLI 的 -c/--config）或設定了 MCP_CONFIG_PATH，
+///    則僅讀取該特定檔案做為唯一來源，不與任何其他預設設定檔合併（若檔案不存在則立即報錯）。
+/// 2. Merge 模式：若無指定特定路徑，依序走訪所有預設候選路徑（專案目錄 -> 家目錄），
+///    檔案不存在時直接略過；檔案存在時解析內容並以 Server 名稱為 key 進行淺層合併（先讀取到的為主）。
+pub fn load_config(
+    explicit_path: Option<&str>,
+) -> Result<McpServersConfig, crate::errors::CliError> {
+    let mut override_path: Option<PathBuf> = None;
+
+    // 業務動機：判斷是否由使用者明確指定了單一設定檔來源
+    if let Some(path) = explicit_path {
+        override_path = Some(PathBuf::from(path));
+    } else if let Ok(env_path) = env::var("MCP_CONFIG_PATH") {
+        override_path = Some(PathBuf::from(env_path));
+    }
+
+    if let Some(path) = override_path {
+        // [模式 1：Override 模式] 明確指定設定檔時，完全覆寫，不與其他檔案合併
+        if !path.exists() {
+            return Err(config_not_found_error(&path.to_string_lossy()));
+        }
+
+        let config = parse_single_config(&path)?;
+
+        if config.mcp_servers.is_empty() {
+            eprintln!("[mcp-cli] Warning: No servers configured in mcpServers. Add server configurations to use MCP tools.");
+        }
+
+        validate_servers(&config)?;
+        return Ok(config);
+    }
+
+    // [模式 2：Merge 模式] 預設依優先度掃描所有候選路徑並進行合併
+    load_config_from_paths(&get_default_config_paths())
 }
 
 pub fn get_server_config(
@@ -626,6 +698,156 @@ mod tests {
         let result = load_config(Some(file_path.to_str().unwrap()));
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().error_type, "CONFIG_INVALID_SERVER");
+
+        let _ = std::fs::remove_file(file_path);
+    }
+
+    #[test]
+    fn test_get_home_dir() {
+        // 業務動機：驗證跨平台家目錄讀取邏輯。
+        // 當 HOME 存在時優先使用 HOME；當 HOME 不存在但 USERPROFILE 存在時應正確回退到 USERPROFILE。
+        let original_home = env::var("HOME").ok();
+        let original_profile = env::var("USERPROFILE").ok();
+
+        // 1. 測試 HOME 優先
+        env::set_var("HOME", "/custom/home/path");
+        env::set_var("USERPROFILE", "C:\\Users\\custom");
+        assert_eq!(get_home_dir(), Some(PathBuf::from("/custom/home/path")));
+
+        // 2. 測試 Windows USERPROFILE 回退機制
+        env::remove_var("HOME");
+        assert_eq!(get_home_dir(), Some(PathBuf::from("C:\\Users\\custom")));
+
+        // 恢復環境變數避免干擾其他測試
+        match original_home {
+            Some(v) => env::set_var("HOME", v),
+            None => env::remove_var("HOME"),
+        }
+        match original_profile {
+            Some(v) => env::set_var("USERPROFILE", v),
+            None => env::remove_var("USERPROFILE"),
+        }
+    }
+
+    #[test]
+    fn test_load_config_from_paths_merge_priority() {
+        // 業務動機：驗證多設定檔合併時的覆蓋優先級。
+        // 1. 同名 Server 採「先讀取到的為主」（檔案 1 覆蓋檔案 2）。
+        // 2. 異名 Server 進行聯集合併。
+        // 3. 不存在的候選路徑應直接被略過，不影響其他檔案載入。
+        use std::fs::File;
+        use std::io::Write;
+
+        let rand_val: u32 = rand::random();
+        let file_path_1 = std::env::temp_dir().join(format!("mcp_merge_1_{}.json", rand_val));
+        let file_path_2 = std::env::temp_dir().join(format!("mcp_merge_2_{}.json", rand_val));
+        let file_path_nonexistent =
+            std::env::temp_dir().join(format!("mcp_merge_nonexistent_{}.json", rand_val));
+
+        // 檔案 1：高優先（例如專案設定）
+        let content_1 = r#"{
+            "mcpServers": {
+                "shared": {
+                    "command": "cmd_v1",
+                    "args": ["arg_v1"]
+                },
+                "local_only": {
+                    "command": "cmd_local"
+                }
+            }
+        }"#;
+        let mut f1 = File::create(&file_path_1).unwrap();
+        f1.write_all(content_1.as_bytes()).unwrap();
+
+        // 檔案 2：低優先（例如全域設定）
+        let content_2 = r#"{
+            "mcpServers": {
+                "shared": {
+                    "command": "cmd_v2_ignored",
+                    "args": ["arg_v2"]
+                },
+                "global_only": {
+                    "command": "cmd_global"
+                }
+            }
+        }"#;
+        let mut f2 = File::create(&file_path_2).unwrap();
+        f2.write_all(content_2.as_bytes()).unwrap();
+
+        let candidate_paths = vec![
+            file_path_1.clone(),
+            file_path_nonexistent,
+            file_path_2.clone(),
+        ];
+        let merged = load_config_from_paths(&candidate_paths).unwrap();
+
+        // 總共應有 3 個 server
+        assert_eq!(merged.mcp_servers.len(), 3);
+
+        // 驗證同名 server 保留先讀取到的版本 (cmd_v1)
+        match merged.mcp_servers.get("shared").unwrap() {
+            ServerConfig::Stdio(sc) => {
+                assert_eq!(sc.command, "cmd_v1");
+                assert_eq!(sc.args.as_ref().unwrap()[0], "arg_v1");
+            }
+            _ => panic!("Expected Stdio server"),
+        }
+
+        // 驗證非同名 server 皆被成功併入
+        assert!(merged.mcp_servers.contains_key("local_only"));
+        assert!(merged.mcp_servers.contains_key("global_only"));
+
+        let _ = std::fs::remove_file(file_path_1);
+        let _ = std::fs::remove_file(file_path_2);
+    }
+
+    #[test]
+    fn test_load_config_override_does_not_merge() {
+        // 業務動機：驗證 Override 模式語意。
+        // 當明確指定 -c/explicit_path 時，僅能讀取該特定檔案，絕對不與其他候選路徑合併。
+        use std::fs::File;
+        use std::io::Write;
+
+        let rand_val: u32 = rand::random();
+        let file_path =
+            std::env::temp_dir().join(format!("mcp_servers_override_{}.json", rand_val));
+        let mut file = File::create(&file_path).unwrap();
+
+        let content = r#"{
+            "mcpServers": {
+                "override-only": {
+                    "command": "node",
+                    "args": ["override.js"]
+                }
+            }
+        }"#;
+        file.write_all(content.as_bytes()).unwrap();
+
+        let config = load_config(Some(file_path.to_str().unwrap())).unwrap();
+        // 僅應包含 override 指定的 server
+        assert_eq!(config.mcp_servers.len(), 1);
+        assert!(config.mcp_servers.contains_key("override-only"));
+
+        let _ = std::fs::remove_file(file_path);
+    }
+
+    #[test]
+    fn test_parse_single_config_fail_fast() {
+        // 業務動機：驗證 Fail-Fast 原則。
+        // 若設定檔存在但語法損毀（例如缺少引號或逗號），必須立刻拋錯終止，不能吞掉錯誤。
+        use std::fs::File;
+        use std::io::Write;
+
+        let rand_val: u32 = rand::random();
+        let file_path = std::env::temp_dir().join(format!("mcp_servers_corrupt_{}.json", rand_val));
+        let mut file = File::create(&file_path).unwrap();
+
+        // 故意寫入格式錯誤的 JSON
+        file.write_all(b"{ invalid json syntax ").unwrap();
+
+        let result = parse_single_config(&file_path);
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().error_type, "CONFIG_INVALID_JSON");
 
         let _ = std::fs::remove_file(file_path);
     }
