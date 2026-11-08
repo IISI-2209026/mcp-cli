@@ -30,6 +30,15 @@ url = "2.5"
 rand = "0.8"
 libc = "0.2"
 
+# 業務動機：在 Windows 平台上進行原生的進程檢測 (OpenProcess/GetExitCodeProcess)、
+# 進程終止 (TerminateProcess) 與主控台字碼頁設定 (SetConsoleOutputCP)
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.52", features = [
+    "Win32_Foundation",
+    "Win32_System_Threading",
+    "Win32_System_Console",
+] }
+
 [profile.release]
 opt-level = 3
 lto = true

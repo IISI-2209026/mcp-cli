@@ -29,12 +29,84 @@ pub struct StdioClient {
     child: Arc<Mutex<Option<Child>>>,
 }
 
+/// 業務動機：在 Windows 平台上解析執行檔的真實路徑。
+/// Windows 的 CreateProcessW 在命令缺少副檔名時，不會自動沿用 PATHEXT（如 .cmd, .bat）。
+/// 這會導致常見的 MCP 伺服器啟動命令（如 npx, uvx）找不到檔案。
+/// 透過本函式遍歷 PATH 與 PATHEXT，將無副檔名的指令補全為可執行的完整路徑。
+pub fn resolve_executable(command: &str) -> String {
+    #[cfg(windows)]
+    {
+        use std::path::Path;
+
+        let cmd_path = Path::new(command);
+        // 若命令已包含副檔名且直接存在，直接使用
+        if cmd_path.extension().is_some() && cmd_path.is_file() {
+            return command.to_string();
+        }
+
+        // 取得 PATHEXT，若無則提供常見預設值
+        let pathext =
+            std::env::var("PATHEXT").unwrap_or_else(|_| ".COM;.EXE;.BAT;.CMD".to_string());
+        let extensions: Vec<String> = pathext
+            .split(';')
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string())
+            .collect();
+
+        // 1. 若已經是相對或絕對路徑但缺少副檔名
+        if cmd_path
+            .parent()
+            .map_or(false, |p| !p.as_os_str().is_empty())
+        {
+            for ext in &extensions {
+                let with_ext = format!("{}{}", command, ext.to_lowercase());
+                if Path::new(&with_ext).is_file() {
+                    return with_ext;
+                }
+                let with_ext_upper = format!("{}{}", command, ext.to_uppercase());
+                if Path::new(&with_ext_upper).is_file() {
+                    return with_ext_upper;
+                }
+            }
+            return command.to_string();
+        }
+
+        // 2. 在 PATH 中搜尋
+        if let Ok(path_var) = std::env::var("PATH") {
+            for dir in std::env::split_paths(&path_var) {
+                // 若 command 本身已有副檔名
+                if cmd_path.extension().is_some() {
+                    let candidate = dir.join(command);
+                    if candidate.is_file() {
+                        return candidate.to_string_lossy().to_string();
+                    }
+                } else {
+                    for ext in &extensions {
+                        let candidate_lower =
+                            dir.join(format!("{}{}", command, ext.to_lowercase()));
+                        if candidate_lower.is_file() {
+                            return candidate_lower.to_string_lossy().to_string();
+                        }
+                        let candidate_upper =
+                            dir.join(format!("{}{}", command, ext.to_uppercase()));
+                        if candidate_upper.is_file() {
+                            return candidate_upper.to_string_lossy().to_string();
+                        }
+                    }
+                }
+            }
+        }
+    }
+    command.to_string()
+}
+
 impl StdioClient {
     pub async fn connect(
         server_name: &str,
         config: &crate::config::StdioServerConfig,
     ) -> Result<Self, CliError> {
-        let mut cmd = Command::new(&config.command);
+        let resolved_command = resolve_executable(&config.command);
+        let mut cmd = Command::new(&resolved_command);
         if let Some(ref args) = config.args {
             cmd.args(args);
         }
@@ -818,5 +890,17 @@ pub async fn get_connection(
             .await?;
             Ok(McpConnection::Http(client))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_resolve_executable_fallback() {
+        // 業務動機：驗證在非 Windows 平台或普通命令下 resolve_executable 不變更原有命令字串
+        assert_eq!(resolve_executable("node"), "node");
+        assert_eq!(resolve_executable("python3"), "python3");
     }
 }

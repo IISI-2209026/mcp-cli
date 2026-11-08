@@ -342,6 +342,13 @@ Config Files:
 
 #[tokio::main]
 async fn main() {
+    // 業務動機：在 Windows 平台上，傳統 CMD/PowerShell 終端機預設使用 ANSI/OEM 字碼頁（如繁中 CP950），
+    // 容易導致 UTF-8 格式的工具描述與 JSON 回應呈現亂碼。在此將控制台輸出字碼頁切換為 UTF-8 (CP 65001)。
+    #[cfg(windows)]
+    unsafe {
+        windows_sys::Win32::System::Console::SetConsoleOutputCP(65001);
+    }
+
     let args: Vec<String> = std::env::args().collect();
     if args.len() >= 4 && args[1] == "--daemon" {
         let server_name = &args[2];

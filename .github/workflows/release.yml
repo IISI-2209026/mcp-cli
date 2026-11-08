@@ -31,6 +31,10 @@ jobs:
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-latest
             suffix: linux-arm64
+          # 業務動機：提供標準 64 位元 Windows (Intel/AMD) 二進位構建，支援最廣泛的 Windows 用戶群
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            suffix: win-x64
           - target: aarch64-pc-windows-msvc
             os: windows-11-arm
             suffix: win-arm64
@@ -108,6 +112,7 @@ jobs:
           files: |
             dist/mcp-cli-linux-x64
             dist/mcp-cli-linux-arm64
+            dist/mcp-cli-win-x64.exe
             dist/mcp-cli-win-arm64.exe
             dist/mcp-cli-darwin-x64
             dist/mcp-cli-darwin-arm64

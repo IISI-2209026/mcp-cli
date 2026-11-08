@@ -26,8 +26,13 @@ jobs:
         run: cargo clippy --all-targets --all-features -- -D warnings
 
   test:
-    name: Test
-    runs-on: ubuntu-latest
+    name: Test (${{ matrix.os }})
+    # 業務動機：在三大主流 OS 平台上自動執行單元測試，及早發現 Windows / macOS / Linux 平台專屬代碼的編譯與邏輯缺陷
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     needs: check
     steps:
       - uses: actions/checkout@v6

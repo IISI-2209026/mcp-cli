@@ -22,6 +22,8 @@ function assetName() {
   if (platform === 'linux' && arch === 'arm64') return 'mcp-cli-linux-arm64';
   if (platform === 'darwin' && arch === 'x64') return 'mcp-cli-darwin-x64';
   if (platform === 'darwin' && arch === 'arm64') return 'mcp-cli-darwin-arm64';
+  // 業務動機：支援 Windows 兩大主流架構 (x64 與 ARM64)，確保絕大多數 Windows 使用者皆可順利安裝
+  if (platform === 'win32' && arch === 'x64') return 'mcp-cli-win-x64.exe';
   if (platform === 'win32' && arch === 'arm64') return 'mcp-cli-win-arm64.exe';
 
   throw new Error(`Unsupported platform: ${platform}/${arch}`);
@@ -91,7 +93,18 @@ async function main() {
 
   fs.mkdirSync(vendorDir, { recursive: true });
   fs.writeFileSync(tmpPath, binary, { mode: 0o755 });
-  fs.renameSync(tmpPath, binaryPath);
+  // 業務動機：在 Windows 等多磁區環境下，若暫存目錄 (os.tmpdir) 與安裝目標目錄位於不同磁區，
+  // fs.renameSync 會觸發 EXDEV 錯誤；在此透過 try-catch 降級為 copyFileSync + unlinkSync。
+  try {
+    fs.renameSync(tmpPath, binaryPath);
+  } catch (err) {
+    if (err && err.code === 'EXDEV') {
+      fs.copyFileSync(tmpPath, binaryPath);
+      fs.unlinkSync(tmpPath);
+    } else {
+      throw err;
+    }
+  }
   fs.chmodSync(binaryPath, 0o755);
 }
 

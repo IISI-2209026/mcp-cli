@@ -20,7 +20,8 @@ fn parse_target(target: &str) -> Result<(String, String), CliError> {
 
 async fn parse_args(args_string: Option<&str>) -> Result<serde_json::Value, CliError> {
     let json_string = if let Some(args) = args_string {
-        args.to_string()
+        // 業務動機：過濾傳入參數開頭可能帶有的 UTF-8 BOM 與空白
+        args.trim_start_matches('\u{feff}').trim().to_string()
     } else if !std::io::stdin().is_terminal() {
         let mut timeout_ms = crate::config::get_timeout_ms();
         if std::env::var("ANTIGRAVITY_AGENT").is_ok() {
@@ -31,7 +32,12 @@ async fn parse_args(args_string: Option<&str>) -> Result<serde_json::Value, CliE
 
         let read_fut = stdin.read_to_end(&mut buffer);
         match tokio::time::timeout(Duration::from_millis(timeout_ms), read_fut).await {
-            Ok(Ok(_)) => String::from_utf8_lossy(&buffer).trim().to_string(),
+            Ok(Ok(_)) => {
+                // 業務動機：PowerShell 或某些 Windows 工具管線輸出時，可能包含 UTF-8 BOM (\u{feff}) 或 CRLF (\r\n)，
+                // 若未剔除會導致 serde_json 解析無效。在此自動過濾 BOM 並去除頭尾空白字元。
+                let s = String::from_utf8_lossy(&buffer);
+                s.trim_start_matches('\u{feff}').trim().to_string()
+            }
             Ok(Err(e)) => {
                 return Err(crate::errors::CliError {
                     code: crate::errors::ErrorCode::ClientError,
@@ -103,5 +109,27 @@ pub async fn call_command(options: CallOptions) -> Result<(), CliError> {
 
             Err(err)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_parse_args_with_bom() {
+        // 業務動機：驗證來自 PowerShell 或特定 Windows 編輯器的 UTF-8 BOM 開頭 JSON 能正常被解析
+        let bom_json = "\u{feff}{\"key\": \"value\"}";
+        let parsed = parse_args(Some(bom_json)).await.unwrap();
+        assert_eq!(parsed["key"], "value");
+    }
+
+    #[tokio::test]
+    async fn test_parse_args_empty_and_normal() {
+        let empty = parse_args(Some("")).await.unwrap();
+        assert_eq!(empty, serde_json::json!({}));
+
+        let normal = parse_args(Some("{\"count\": 42}")).await.unwrap();
+        assert_eq!(normal["count"], 42);
     }
 }

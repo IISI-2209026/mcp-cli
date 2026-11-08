@@ -113,22 +113,75 @@ pub fn get_daemon_addr(server_name: &str, config_hash: &str) -> String {
     format!("127.0.0.1:{}", port)
 }
 
+/// 業務動機：檢測指定的 PID 程序是否仍在背景執行中。
+/// Unix 平台透過向進程發送信號 0 (libc::kill(pid, 0)) 進行非侵入式檢測；
+/// Windows 平台透過 OpenProcess 與 GetExitCodeProcess 檢查進程退出代碼是否為 STILL_ACTIVE。
 #[cfg(unix)]
 pub fn is_process_running(pid: i32) -> bool {
+    if pid <= 0 {
+        return false;
+    }
     unsafe { libc::kill(pid, 0) == 0 }
 }
 
-#[cfg(not(unix))]
-pub fn is_process_running(_pid: i32) -> bool {
-    true
+#[cfg(windows)]
+pub fn is_process_running(pid: i32) -> bool {
+    if pid <= 0 {
+        return false;
+    }
+    use windows_sys::Win32::Foundation::{CloseHandle, FALSE};
+    use windows_sys::Win32::System::Threading::{
+        GetExitCodeProcess, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION, STILL_ACTIVE,
+    };
+
+    unsafe {
+        let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid as u32);
+        if handle == 0 {
+            return false;
+        }
+        let mut exit_code: u32 = 0;
+        let success = GetExitCodeProcess(handle, &mut exit_code);
+        CloseHandle(handle);
+        success != 0 && exit_code == STILL_ACTIVE as u32
+    }
 }
 
+#[cfg(not(any(unix, windows)))]
+pub fn is_process_running(_pid: i32) -> bool {
+    false
+}
+
+/// 業務動機：強制終止指定的 PID 背景程序。
+/// Unix 平台發送 SIGTERM 信號進行優雅終止；
+/// Windows 平台使用 TerminateProcess 進行強制終止，確保配置雜湊不符或殘留進程能被確實清理。
 #[cfg(unix)]
 pub fn kill_process(pid: i32) -> bool {
+    if pid <= 0 {
+        return false;
+    }
     unsafe { libc::kill(pid, libc::SIGTERM) == 0 }
 }
 
-#[cfg(not(unix))]
+#[cfg(windows)]
+pub fn kill_process(pid: i32) -> bool {
+    if pid <= 0 {
+        return false;
+    }
+    use windows_sys::Win32::Foundation::{CloseHandle, FALSE};
+    use windows_sys::Win32::System::Threading::{OpenProcess, TerminateProcess, PROCESS_TERMINATE};
+
+    unsafe {
+        let handle = OpenProcess(PROCESS_TERMINATE, FALSE, pid as u32);
+        if handle == 0 {
+            return false;
+        }
+        let success = TerminateProcess(handle, 1);
+        CloseHandle(handle);
+        success != 0
+    }
+}
+
+#[cfg(not(any(unix, windows)))]
 pub fn kill_process(_pid: i32) -> bool {
     false
 }

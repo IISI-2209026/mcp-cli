@@ -205,13 +205,24 @@ pub fn get_daemon_timeout_ms() -> u64 {
     DEFAULT_DAEMON_TIMEOUT_SECONDS * 1000
 }
 
+/// 業務動機：取得本機通訊與 PID 檔案的存放目錄。
+/// 在 Unix 上遵循 FHS 存放於 /tmp/mcp-cli-{uid}；
+/// 在 Windows 上使用標準 temp 目錄 (%TEMP%) 並區分使用者名稱，避免寫死 /tmp 導致磁碟根目錄權限不足。
 pub fn get_socket_dir() -> PathBuf {
     #[cfg(unix)]
-    let uid = unsafe { libc::getuid() };
-    #[cfg(not(unix))]
-    let uid = "unknown";
-
-    PathBuf::from(format!("/tmp/mcp-cli-{}", uid))
+    {
+        let uid = unsafe { libc::getuid() };
+        PathBuf::from(format!("/tmp/mcp-cli-{}", uid))
+    }
+    #[cfg(windows)]
+    {
+        let username = env::var("USERNAME").unwrap_or_else(|_| "default".to_string());
+        std::env::temp_dir().join(format!("mcp-cli-{}", username))
+    }
+    #[cfg(not(any(unix, windows)))]
+    {
+        std::env::temp_dir().join("mcp-cli-unknown")
+    }
 }
 
 pub fn get_socket_path(server_name: &str) -> PathBuf {

@@ -7,6 +7,8 @@ use crate::daemon::{
 };
 use crate::errors::CliError;
 use std::fs;
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
 use std::path::PathBuf;
 use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt};
@@ -209,13 +211,21 @@ async fn spawn_daemon(server_name: &str, config: &ServerConfig) -> bool {
     };
 
     // Spawn detached process
-    let mut child = match tokio::process::Command::new(current_exe)
-        .args(["--daemon", server_name, &config_json])
+    let mut cmd = tokio::process::Command::new(current_exe);
+    cmd.args(["--daemon", server_name, &config_json])
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::null()) // Don't forward stderr to console for daemon
-        .spawn()
+        .stderr(std::process::Stdio::null()); // Don't forward stderr to console for daemon
+
+    // 業務動機：在 Windows 平台上啟動 Daemon 時，設定 CREATE_NO_WINDOW (0x08000000) 旗標，
+    // 避免每次啟動背景 Daemon 時彈出黑色的命令提示字元主控台視窗，並使其脫離前台主控台干擾。
+    #[cfg(windows)]
     {
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+
+    let mut child = match cmd.spawn() {
         Ok(c) => c,
         Err(e) => {
             debug(&format!(
