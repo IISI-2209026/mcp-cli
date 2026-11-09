@@ -7,8 +7,6 @@ use crate::daemon::{
 };
 use crate::errors::CliError;
 use std::fs;
-#[cfg(windows)]
-use std::os::windows::process::CommandExt;
 use std::path::PathBuf;
 use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt};

@@ -129,9 +129,9 @@ pub fn is_process_running(pid: i32) -> bool {
     if pid <= 0 {
         return false;
     }
-    use windows_sys::Win32::Foundation::{CloseHandle, FALSE};
+    use windows_sys::Win32::Foundation::{CloseHandle, FALSE, STILL_ACTIVE};
     use windows_sys::Win32::System::Threading::{
-        GetExitCodeProcess, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION, STILL_ACTIVE,
+        GetExitCodeProcess, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION,
     };
 
     unsafe {
