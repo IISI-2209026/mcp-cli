@@ -291,6 +291,7 @@ pub async fn get_daemon_connection(
         tokio::time::sleep(Duration::from_millis(100)).await;
     }
 
+    #[cfg(unix)]
     if !socket_path.exists() {
         debug(&format!(
             "[daemon-client] Socket not found after spawn for {}",

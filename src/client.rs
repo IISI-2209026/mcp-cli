@@ -56,7 +56,7 @@ pub fn resolve_executable(command: &str) -> String {
         // 1. 若已經是相對或絕對路徑但缺少副檔名
         if cmd_path
             .parent()
-            .map_or(false, |p| !p.as_os_str().is_empty())
+            .is_some_and(|p| !p.as_os_str().is_empty())
         {
             for ext in &extensions {
                 let with_ext = format!("{}{}", command, ext.to_lowercase());
@@ -899,8 +899,14 @@ mod tests {
 
     #[test]
     fn test_resolve_executable_fallback() {
-        // 業務動機：驗證在非 Windows 平台或普通命令下 resolve_executable 不變更原有命令字串
-        assert_eq!(resolve_executable("node"), "node");
-        assert_eq!(resolve_executable("python3"), "python3");
+        // 業務動機：驗證在找不到可執行檔時 resolve_executable 不變更原有命令字串
+        assert_eq!(
+            resolve_executable("non_existent_binary_12345"),
+            "non_existent_binary_12345"
+        );
+        assert_eq!(
+            resolve_executable("dummy_command_for_test"),
+            "dummy_command_for_test"
+        );
     }
 }
