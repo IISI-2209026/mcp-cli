@@ -28,23 +28,23 @@
 ### 1. 安裝
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/doggy8088/mcp-cli/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/iisi-2209026/mcp-cli/main/install.sh | bash
 ```
 
 或：
 
 ```bash
 # 需要先安裝 Cargo
-cargo install --git https://github.com/doggy8088/mcp-cli
+cargo install --git https://github.com/iisi-2209026/mcp-cli
 ```
 
 也可以透過 npm 安裝：
 
 ```bash
-npm install -g @willh/mcp-cli
+npm install -g @patrick85081/mcp-cli
 ```
 
-npm package 是一層很薄的 wrapper，會從相同版本的 GitHub Release tag 下載原生 `mcp-cli` binary。例如 `@willh/mcp-cli@0.2.0` 會下載 `v0.2.0` 的 assets。
+npm package 是一層很薄的 wrapper，會從相同版本的 GitHub Release tag 下載原生 `mcp-cli` binary。例如 `@patrick85081/mcp-cli@0.2.1` 會下載 `v0.2.1` 的 assets。
 
 ### 2. 建立設定檔
 
@@ -129,7 +129,7 @@ mcp-cli [options] call <server> <tool> <json> 使用 JSON arguments 呼叫 tool
 
 ```toml
 [dependencies]
-mcp-cli = { git = "https://github.com/doggy8088/mcp-cli" }
+mcp-cli = { git = "https://github.com/iisi-2209026/mcp-cli" }
 ```
 
 使用 `McpClient` 執行常見流程：
@@ -622,7 +622,7 @@ CLI 對短暫性 failures 內建 **exponential backoff 自動 retry**。
 ### 設定
 
 ```bash
-git clone https://github.com/doggy8088/mcp-cli.git
+git clone https://github.com/iisi-2209026/mcp-cli.git
 cd mcp-cli
 ```
 

@@ -2,6 +2,7 @@ name: Release
 
 on:
   push:
+    # 業務動機：僅在明確推送以 'v' 開頭的版本標籤 (如 v0.2.1) 時觸發正式發布流程，避免日常開發 commit 頻繁觸發重量級編譯
     tags:
       - 'v*'
 
@@ -16,6 +17,7 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
 
       - name: Run tests
+        # 業務動機：在編譯跨平台二進位檔前先完整執行測試，確保發布之程式碼品質無誤
         run: cargo test --all-features
 
   build:
@@ -102,9 +104,11 @@ jobs:
 
       - name: Get version from tag
         id: version
+        # 業務動機：從 GITHUB_REF (refs/tags/vX.Y.Z) 提取版本名稱，供 GitHub Release 標題使用
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
       - name: Create Release
+        # 業務動機：自動將各大平台產出的二進位檔與校驗雜湊檔案上傳至 GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           name: ${{ steps.version.outputs.VERSION }}

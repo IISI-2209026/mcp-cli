@@ -1,6 +1,7 @@
 name: Publish npm package
 
 on:
+  # 業務動機：在 Release 工作流程執行完畢後自動觸發，確保原生二進位檔案已上傳至 GitHub Release
   workflow_run:
     workflows: ["Release"]
     types: [completed]
@@ -13,6 +14,7 @@ on:
 
 jobs:
   publish:
+    # 業務動機：僅在 Release 流程成功且來源為版本標籤 (v 開頭) 或手動觸發時，才執行 npm 發布
     if: >-
       ${{
         github.event_name == 'workflow_dispatch' ||
@@ -31,6 +33,7 @@ jobs:
           ref: ${{ github.event.workflow_run.head_sha || inputs.ref }}
 
       - name: Verify package version matches tag
+        # 業務動機：防呆檢查，確保 package.json 內的版號與 Git Tag 一致，避免發布錯誤版號
         if: ${{ github.event_name == 'workflow_run' }}
         run: |
           PACKAGE_TAG="v$(node -p "require('./package.json').version")"
@@ -45,4 +48,7 @@ jobs:
           registry-url: https://registry.npmjs.org
 
       - name: Publish to npm
+        # 業務動機：以 public 權限發布 scoped package，並使用 GitHub Secret NPM_TOKEN 進行身分驗證
         run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

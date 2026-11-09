@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.2.1] - 2026-11-09
+
+### Changed
+
+- **Package 與 Repository 資訊更新**
+  - 將 npm package 名稱調整為 `@patrick85081/mcp-cli`。
+  - 將 GitHub 倉庫路徑調整為 `iisi-2209026/mcp-cli`。
+  - 完善 GitHub Actions npm 自動發布流程。
+
+---
+
 ## [0.2.0] - 2026-07-08
 
 ### Added

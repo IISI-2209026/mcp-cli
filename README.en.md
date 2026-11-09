@@ -24,14 +24,14 @@ A lightweight Rust CLI and library for interacting with [MCP (Model Context Prot
 ### 1. Installation
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/doggy8088/mcp-cli/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/iisi-2209026/mcp-cli/main/install.sh | bash
 ```
 
 or 
 
 ```bash
 # requires Cargo installed
-cargo install --git https://github.com/doggy8088/mcp-cli
+cargo install --git https://github.com/iisi-2209026/mcp-cli
 ```
 
 ### 2. Create a config file
@@ -93,7 +93,7 @@ Add the crate to another Rust project:
 
 ```toml
 [dependencies]
-mcp-cli = { git = "https://github.com/doggy8088/mcp-cli" }
+mcp-cli = { git = "https://github.com/iisi-2209026/mcp-cli" }
 ```
 
 Use `McpClient` for the common workflow:
@@ -595,7 +595,7 @@ The CLI includes **automatic retry with exponential backoff** for transient fail
 ### Setup
 
 ```bash
-git clone https://github.com/doggy8088/mcp-cli.git
+git clone https://github.com/iisi-2209026/mcp-cli.git
 cd mcp-cli
 ```
 
@@ -698,7 +698,7 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ### Install with npm
 
 ```bash
-npm install -g @willh/mcp-cli
+npm install -g @patrick85081/mcp-cli
 ```
 
-The npm package is a thin wrapper that downloads the native `mcp-cli` binary from the matching GitHub Release tag. For example, `@willh/mcp-cli@0.2.0` downloads assets from `v0.2.0`.
+The npm package is a thin wrapper that downloads the native `mcp-cli` binary from the matching GitHub Release tag. For example, `@patrick85081/mcp-cli@0.2.1` downloads assets from `v0.2.1`.

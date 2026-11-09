@@ -1,8 +1,8 @@
 # npm 發布流程與維護知識庫
 
-本文件說明 `mcp-cli` 如何透過 npm 發布為 `@willh/mcp-cli`，並整理發布、維護、除錯、版本管理與 GitHub Actions trusted publishing 所需的技術知識。
+本文件說明 `mcp-cli` 如何透過 npm 發布為 `@patrick85081/mcp-cli`，並整理發布、維護、除錯、版本管理與 GitHub Actions trusted publishing 所需的技術知識。
 
-`@willh/mcp-cli` 是原生 Rust CLI 的 npm wrapper。npm package 本身不包含預先打包的所有平台二進位檔，也不會在使用者機器上執行 `cargo build`。安裝時會根據使用者平台，從 GitHub Release 下載同版本的原生 `mcp-cli` binary。
+`@patrick85081/mcp-cli` 是原生 Rust CLI 的 npm wrapper。npm package 本身不包含預先打包的所有平台二進位檔，也不會在使用者機器上執行 `cargo build`。安裝時會根據使用者平台，從 GitHub Release 下載同版本的原生 `mcp-cli` binary。
 
 * * *
 
@@ -25,14 +25,14 @@
 | 層級 | 用途 | 產物 |
 |---|---|---|
 | GitHub Release | 發布原生 Rust binaries | `mcp-cli-linux-x64` 等 assets |
-| npm registry | 發布 Node wrapper | `@willh/mcp-cli` |
+| npm registry | 發布 Node wrapper | `@patrick85081/mcp-cli` |
 
 npm package 是 wrapper，不是 Rust crate。
 
 安裝流程如下：
 
 ```text
-npm install -g @willh/mcp-cli
+npm install -g @patrick85081/mcp-cli
         |
         v
 執行 package.json scripts.postinstall
@@ -77,7 +77,7 @@ bin/mcp-cli.js 執行 vendor binary
 
 ```json
 {
-  "name": "@willh/mcp-cli",
+  "name": "@patrick85081/mcp-cli",
   "version": "0.1.0",
   "bin": {
     "mcp-cli": "bin/mcp-cli.js"
@@ -102,7 +102,7 @@ bin/mcp-cli.js 執行 vendor binary
 npm package name 是：
 
 ```text
-@willh/mcp-cli
+@patrick85081/mcp-cli
 ```
 
 這是 scoped package。首次發布 scoped public package 時必須使用：
@@ -127,7 +127,7 @@ package.json version 1.0.0 -> GitHub tag v1.0.0
 const version = process.env.MCP_CLI_VERSION || `v${packageJson.version}`;
 ```
 
-所以 `@willh/mcp-cli@1.0.0` 預設會下載 `v1.0.0` 的 assets。
+所以 `@patrick85081/mcp-cli@1.0.0` 預設會下載 `v1.0.0` 的 assets。
 
 ### `bin`
 
@@ -156,13 +156,13 @@ mcp-cli --version
 此 script 負責下載原生 binary。這表示如果使用者使用以下方式跳過 lifecycle scripts，binary 不會被下載：
 
 ```sh
-npm install -g @willh/mcp-cli --ignore-scripts
+npm install -g @patrick85081/mcp-cli --ignore-scripts
 ```
 
 這種情況下執行 `mcp-cli` 會失敗，並提示重新執行：
 
 ```sh
-npm rebuild @willh/mcp-cli
+npm rebuild @patrick85081/mcp-cli
 ```
 
 ### `files`
@@ -286,7 +286,7 @@ const binaryName = process.platform === 'win32' ? 'mcp-cli.exe' : 'mcp-cli';
 預設 repository：
 
 ```text
-doggy8088/mcp-cli
+iisi-2209026/mcp-cli
 ```
 
 預設 tag：
@@ -298,7 +298,7 @@ v<package.json version>
 組合後的 URL 格式：
 
 ```text
-https://github.com/doggy8088/mcp-cli/releases/download/v<VERSION>/<ASSET>
+https://github.com/iisi-2209026/mcp-cli/releases/download/v<VERSION>/<ASSET>
 ```
 
 ### 環境變數覆寫
@@ -313,7 +313,7 @@ https://github.com/doggy8088/mcp-cli/releases/download/v<VERSION>/<ASSET>
 範例：
 
 ```sh
-MCP_CLI_REPO=doggy8088/mcp-cli MCP_CLI_VERSION=v1.0.0 npm install -g @willh/mcp-cli
+MCP_CLI_REPO=iisi-2209026/mcp-cli MCP_CLI_VERSION=v1.0.0 npm install -g @patrick85081/mcp-cli
 ```
 
 這對測試 fork 或測試特定 release 有用。
@@ -536,9 +536,9 @@ GitHub workflow 只是其中一半。npm registry 端也必須設定 trusted pub
 
 | 欄位 | 值 |
 |---|---|
-| Package | `@willh/mcp-cli` |
+| Package | `@patrick85081/mcp-cli` |
 | Publisher type | GitHub Actions |
-| Repository | `doggy8088/mcp-cli` |
+| Repository | `iisi-2209026/mcp-cli` |
 | Workflow | `.github/workflows/npm-publish.yml` |
 
 如果 npm package 尚未建立，需依 npm 當前介面設定 trusted publishing。npm 介面可能變動，實際欄位以 npm 官方介面為準。
@@ -678,7 +678,7 @@ npm registry 的版本一旦發布，不可覆寫。
 例如：
 
 ```text
-@willh/mcp-cli@1.0.0
+@patrick85081/mcp-cli@1.0.0
 ```
 
 一旦發布成功，再次執行：
@@ -752,19 +752,19 @@ node_modules/
 Global install：
 
 ```sh
-npm install -g @willh/mcp-cli
+npm install -g @patrick85081/mcp-cli
 ```
 
 指定版本：
 
 ```sh
-npm install -g @willh/mcp-cli@1.0.0
+npm install -g @patrick85081/mcp-cli@1.0.0
 ```
 
 使用 `npx`：
 
 ```sh
-npx @willh/mcp-cli --version
+npx @patrick85081/mcp-cli --version
 ```
 
 如果 `npx` 每次都重新建立暫存環境，可能會每次觸發 postinstall 下載 binary。
@@ -780,7 +780,7 @@ npx @willh/mcp-cli --version
 檢查：
 
 ```text
-https://github.com/doggy8088/mcp-cli/releases/download/v<VERSION>/<ASSET>
+https://github.com/iisi-2209026/mcp-cli/releases/download/v<VERSION>/<ASSET>
 ```
 
 常見原因：
@@ -817,14 +817,14 @@ npm install --ignore-scripts
 修正：
 
 ```sh
-npm rebuild @willh/mcp-cli
+npm rebuild @patrick85081/mcp-cli
 ```
 
 或重新安裝：
 
 ```sh
-npm uninstall -g @willh/mcp-cli
-npm install -g @willh/mcp-cli
+npm uninstall -g @patrick85081/mcp-cli
+npm install -g @patrick85081/mcp-cli
 ```
 
 ### Trusted publishing authentication error
@@ -936,7 +936,7 @@ release job 的 files list 必須包含新 asset。
 確認 URL 可下載：
 
 ```text
-https://github.com/doggy8088/mcp-cli/releases/download/v<VERSION>/<ASSET>
+https://github.com/iisi-2209026/mcp-cli/releases/download/v<VERSION>/<ASSET>
 ```
 
 * * *
@@ -1063,7 +1063,7 @@ cargo build --release
 [ ] checksums.txt 存在
 [ ] npm-publish workflow 成功
 [ ] npm registry 可看到新版本
-[ ] npm install -g @willh/mcp-cli@<VERSION> 可下載 binary
+[ ] npm install -g @patrick85081/mcp-cli@<VERSION> 可下載 binary
 [ ] mcp-cli --version 顯示預期版本
 ```
 
@@ -1115,7 +1115,7 @@ npm pack --dry-run
 重新下載 npm binary：
 
 ```sh
-npm rebuild @willh/mcp-cli
+npm rebuild @patrick85081/mcp-cli
 ```
 
 重新發布 GitHub Release tag：
@@ -1130,19 +1130,19 @@ git push origin v1.0.0
 指定下載 repository 與版本測試安裝：
 
 ```sh
-MCP_CLI_REPO=doggy8088/mcp-cli MCP_CLI_VERSION=v1.0.0 npm install -g @willh/mcp-cli
+MCP_CLI_REPO=iisi-2209026/mcp-cli MCP_CLI_VERSION=v1.0.0 npm install -g @patrick85081/mcp-cli
 ```
 
 查詢 npm package：
 
 ```sh
-npm view @willh/mcp-cli
+npm view @patrick85081/mcp-cli
 ```
 
 查詢特定 npm version：
 
 ```sh
-npm view @willh/mcp-cli@1.0.0
+npm view @patrick85081/mcp-cli@1.0.0
 ```
 
 * * *
@@ -1165,14 +1165,14 @@ npm CLI 也提供 `npm trust github` 來建立 trusted publisher 設定，但實
 
 ## 首次發布的可靠流程
 
-首次發布 `@willh/mcp-cli` 時，建議採用以下順序。
+首次發布 `@patrick85081/mcp-cli` 時，建議採用以下順序。
 
 ### 1. 確認 package name 可用
 
 先查詢 package 是否已存在：
 
 ```sh
-npm view @willh/mcp-cli
+npm view @patrick85081/mcp-cli
 ```
 
 如果 package 不存在，npm 通常會回傳 404 類型錯誤。
@@ -1224,13 +1224,13 @@ dist/
 例如要發布：
 
 ```text
-@willh/mcp-cli@1.0.0
+@patrick85081/mcp-cli@1.0.0
 ```
 
 就必須先有：
 
 ```text
-https://github.com/doggy8088/mcp-cli/releases/download/v1.0.0/
+https://github.com/iisi-2209026/mcp-cli/releases/download/v1.0.0/
 ```
 
 且至少包含目前支援平台的 assets：
@@ -1275,7 +1275,7 @@ npm publish --access public --otp <OTP>
 首次發布成功後，開啟 npm package settings：
 
 ```text
-npmjs.com -> Packages -> @willh/mcp-cli -> Settings -> Trusted publishing
+npmjs.com -> Packages -> @patrick85081/mcp-cli -> Settings -> Trusted publishing
 ```
 
 設定 GitHub Actions trusted publisher。
@@ -1285,7 +1285,7 @@ npmjs.com -> Packages -> @willh/mcp-cli -> Settings -> Trusted publishing
 | npm 欄位 | 本專案設定 |
 |---|---|
 | Provider | GitHub Actions |
-| Organization or user | `doggy8088` |
+| Organization or user | `iisi-2209026` |
 | Repository | `mcp-cli` |
 | Workflow filename | `npm-publish.yml` |
 | Environment name | 空白，除非 workflow 使用 GitHub Environment |
@@ -1333,7 +1333,7 @@ npm 官方文件指出，從 GitHub trusted publishing 時，`package.json` 的 
 {
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/doggy8088/mcp-cli.git"
+    "url": "git+https://github.com/iisi-2209026/mcp-cli.git"
   }
 }
 ```
@@ -1365,7 +1365,7 @@ GitHub Release published
 npm-publish.yml 執行 npm publish
         |
         v
-npm registry 發布 @willh/mcp-cli@1.0.1
+npm registry 發布 @patrick85081/mcp-cli@1.0.1
 ```
 
 * * *
@@ -1377,8 +1377,8 @@ npm CLI 提供 `npm trust github`，可用 CLI 管理 trusted publisher 設定�
 基本格式：
 
 ```sh
-npm trust github @willh/mcp-cli \
-  --repo doggy8088/mcp-cli \
+npm trust github @patrick85081/mcp-cli \
+  --repo iisi-2209026/mcp-cli \
   --file npm-publish.yml \
   --allow-publish
 ```
@@ -1386,19 +1386,19 @@ npm trust github @willh/mcp-cli \
 檢查現有 trusted publisher：
 
 ```sh
-npm trust list @willh/mcp-cli
+npm trust list @patrick85081/mcp-cli
 ```
 
 移除 trusted publisher 時，先查出 trust id：
 
 ```sh
-npm trust list @willh/mcp-cli
+npm trust list @patrick85081/mcp-cli
 ```
 
 再撤銷：
 
 ```sh
-npm trust revoke @willh/mcp-cli --id <trust-id>
+npm trust revoke @patrick85081/mcp-cli --id <trust-id>
 ```
 
 限制與注意事項：
@@ -1447,10 +1447,10 @@ npm-publish
 ```text
 [ ] npm 帳號已登入
 [ ] npm 帳號具備 @willh scope 發布權限
-[ ] @willh/mcp-cli 尚未被其他 package 佔用
-[ ] package.json name 是 @willh/mcp-cli
+[ ] @patrick85081/mcp-cli 尚未被其他 package 佔用
+[ ] package.json name 是 @patrick85081/mcp-cli
 [ ] package.json version 是要首發的版本
-[ ] package.json repository.url 指向 doggy8088/mcp-cli
+[ ] package.json repository.url 指向 iisi-2209026/mcp-cli
 [ ] npm pack --dry-run 內容正確
 [ ] GitHub Release v<VERSION> 已存在
 [ ] GitHub Release assets 完整
@@ -1468,13 +1468,13 @@ npm-publish
 
 ## 本專案首次發布的建議實作順序
 
-若 `@willh/mcp-cli` 尚未存在於 npm registry，建議採用以下順序：
+若 `@patrick85081/mcp-cli` 尚未存在於 npm registry，建議採用以下順序：
 
 1. 先確保 `main` 上的 wrapper、release workflow、npm publish workflow 都已合併。
 2. 建立並完成 GitHub Release，例如 `v1.0.0`。
 3. 確認 `v1.0.0` 的所有 release assets 都存在。
 4. 本機執行 `npm pack --dry-run`。
-5. 本機手動執行 `npm publish --access public` 建立 `@willh/mcp-cli`。
+5. 本機手動執行 `npm publish --access public` 建立 `@patrick85081/mcp-cli`。
 6. 到 npm package settings 設定 trusted publisher。
 7. 後續從 `v1.0.1` 起改用 GitHub Actions trusted publishing。
 

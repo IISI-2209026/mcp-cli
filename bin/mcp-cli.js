@@ -10,7 +10,7 @@ const binaryPath = path.join(__dirname, '..', 'vendor', binaryName);
 
 if (!fs.existsSync(binaryPath)) {
   console.error('mcp-cli native binary is not installed.');
-  console.error('Run `npm rebuild @willh/mcp-cli` to download it again.');
+  console.error('Run `npm rebuild @patrick85081/mcp-cli` to download it again.');
   process.exit(1);
 }
 

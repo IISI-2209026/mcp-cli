@@ -1,15 +1,15 @@
 {
-  "name": "@willh/mcp-cli",
-  "version": "0.2.0",
+  "name": "@patrick85081/mcp-cli",
+  "version": "0.2.1",
   "description": "npm wrapper for the mcp-cli native binary",
   "license": "MIT",
-  "homepage": "https://github.com/doggy8088/mcp-cli#readme",
+  "homepage": "https://github.com/iisi-2209026/mcp-cli#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/doggy8088/mcp-cli.git"
+    "url": "git+https://github.com/iisi-2209026/mcp-cli.git"
   },
   "bugs": {
-    "url": "https://github.com/doggy8088/mcp-cli/issues"
+    "url": "https://github.com/iisi-2209026/mcp-cli/issues"
   },
   "bin": {
     "mcp-cli": "bin/mcp-cli.js"
